@@ -1,0 +1,9 @@
+[package]
+name = "quark"
+version = "0.1.0"
+edition = "2024"
+authors = ["Aditya Chaturvedi <aditya.chaturvedi1608@gmail.com>"]
+license = "MIT"
+
+[dependencies]
+quark-lib = { path = "./quark-lib" }
