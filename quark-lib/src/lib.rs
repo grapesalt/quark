@@ -1,4 +1,5 @@
 use anyhow::Result;
+use parley::fontique;
 use primitives::Object;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -11,7 +12,7 @@ pub(crate) mod primitives;
 pub(crate) mod render;
 
 pub use anim::Easing;
-pub use style::Color;
+pub use style::{Color, Font, FontWeight};
 
 pub struct Scene {
     pub width: u32,
@@ -21,10 +22,15 @@ pub struct Scene {
 
     cursor: Rc<Cell<f64>>,
     objects: Vec<Rc<RefCell<dyn Object>>>,
+    font_collection: fontique::Collection,
+    font_source_cache: fontique::SourceCache,
 }
 
 impl Scene {
     pub fn new() -> Self {
+        let mut font_collection = fontique::Collection::default();
+        font_collection.load_system_fonts();
+
         Scene {
             width: 800,
             height: 600,
@@ -32,6 +38,8 @@ impl Scene {
             background: Color::WHITE,
             cursor: Rc::new(Cell::new(0.0)),
             objects: Vec::new(),
+            font_collection,
+            font_source_cache: fontique::SourceCache::default(),
         }
     }
 
@@ -160,6 +168,33 @@ impl Scene {
             center1,
             center2,
             radius,
+            Rc::clone(&self.cursor),
+        )));
+
+        self.objects.push(Rc::clone(&o) as Rc<RefCell<dyn Object>>);
+        o
+    }
+
+    pub fn text(
+        &mut self,
+        content: &str,
+        position: (f64, f64),
+        font_name: &str,
+        font_size: f64,
+        font_weight: FontWeight,
+    ) -> Rc<RefCell<primitives::Text>> {
+        let font = style::Font::from_collection(
+            font_name,
+            font_size,
+            font_weight,
+            &mut self.font_collection,
+            &mut self.font_source_cache,
+        )
+        .unwrap_or_else(|e| panic!("Failed to load font '{}': {}", font_name, e));
+        let o = Rc::new(RefCell::new(primitives::Text::new(
+            content,
+            position,
+            font,
             Rc::clone(&self.cursor),
         )));
 

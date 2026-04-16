@@ -3,7 +3,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use kurbo::{Affine, Shape, Stroke};
-use vello::peniko::{self, Fill};
+use vello::peniko::{self, Fill, FontData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Color {
@@ -134,5 +134,88 @@ impl Style {
                 shape,
             );
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FontWeight {
+    Thin,
+    ExtraLight,
+    Light,
+    Regular,
+    Medium,
+    SemiBold,
+    Bold,
+    ExtraBold,
+    Black,
+}
+
+impl FontWeight {
+    fn to_parley(self) -> parley::FontWeight {
+        match self {
+            FontWeight::Thin => parley::FontWeight::new(100.0),
+            FontWeight::ExtraLight => parley::FontWeight::new(200.0),
+            FontWeight::Light => parley::FontWeight::new(300.0),
+            FontWeight::Regular => parley::FontWeight::new(400.0),
+            FontWeight::Medium => parley::FontWeight::new(500.0),
+            FontWeight::SemiBold => parley::FontWeight::new(600.0),
+            FontWeight::Bold => parley::FontWeight::new(700.0),
+            FontWeight::ExtraBold => parley::FontWeight::new(800.0),
+            FontWeight::Black => parley::FontWeight::new(900.0),
+        }
+    }
+}
+
+pub struct Font {
+    pub weight: FontWeight,
+    pub initial_size: f64,
+    pub(crate) data: FontData,
+}
+
+impl Font {
+    pub fn from_path(path: &str, size: f64) -> anyhow::Result<Self> {
+        use std::sync::Arc;
+        let bytes = std::fs::read(path)?;
+
+        Ok(Font {
+            weight: FontWeight::Regular,
+            initial_size: size,
+            data: FontData::new(vello::peniko::Blob::new(Arc::new(bytes)), 0),
+        })
+    }
+
+    pub(crate) fn from_collection(
+        name: &str,
+        size: f64,
+        weight: FontWeight,
+        collection: &mut parley::fontique::Collection,
+        source_cache: &mut parley::fontique::SourceCache,
+    ) -> anyhow::Result<Self> {
+        use parley::fontique::{Attributes, QueryFamily, QueryStatus};
+        use parley::{FontStyle, FontWidth};
+
+        let mut query = collection.query(source_cache);
+
+        query.set_families([QueryFamily::Named(name)]);
+        query.set_attributes(Attributes::new(
+            FontWidth::default(),
+            FontStyle::Normal,
+            weight.to_parley(),
+        ));
+
+        let mut font_data = None;
+        query.matches_with(|font| {
+            font_data = Some(FontData::new(font.blob.clone(), font.index));
+            QueryStatus::Stop
+        });
+
+        let data = font_data
+            .ok_or_else(|| anyhow::anyhow!("Font '{}' not found on this system.", name))?;
+
+        Ok(Font {
+            weight,
+            initial_size: size,
+            data,
+        })
     }
 }

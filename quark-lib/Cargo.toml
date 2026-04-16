@@ -8,6 +8,8 @@ license = "MIT"
 [dependencies]
 anyhow  = "1.0.102"
 kurbo = "0.13.0"
+parley = "0.8.0"
 pollster = "0.4.0"
+skrifa = "0.42.0"
 vello = "0.8.0"
 winit = "0.30.13"
