@@ -64,7 +64,7 @@ impl Color {
         }
     }
 
-    pub fn hsv(h: f64, s: f64, v: f64) -> Self {
+    pub fn hsva(h: f64, s: f64, v: f64, a: f64) -> Self {
         let i = (h * 6.0).floor() as u32;
         let f = h * 6.0 - i as f64;
         let p = v * (1.0 - s);
@@ -78,7 +78,7 @@ impl Color {
             4 => (t, p, v),
             _ => (v, p, q),
         };
-        Color { r, g, b, a: 1.0 }
+        Color { r, g, b, a }
     }
 
     pub fn lerp(&self, other: &Color, t: f64) -> Color {

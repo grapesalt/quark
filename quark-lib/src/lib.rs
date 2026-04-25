@@ -5,13 +5,13 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use vello;
 
-pub mod anim;
-pub mod style;
-
+pub(crate) mod anim;
 pub(crate) mod primitives;
 pub(crate) mod render;
+pub(crate) mod style;
 
 pub use anim::Easing;
+pub use primitives::PathSegment;
 pub use style::{Color, Font, FontWeight};
 
 pub struct Scene {
@@ -197,6 +197,13 @@ impl Scene {
             font,
             Rc::clone(&self.cursor),
         )));
+
+        self.objects.push(Rc::clone(&o) as Rc<RefCell<dyn Object>>);
+        o
+    }
+
+    pub fn path(&mut self) -> Rc<RefCell<primitives::Path>> {
+        let o = Rc::new(RefCell::new(primitives::Path::new(Rc::clone(&self.cursor))));
 
         self.objects.push(Rc::clone(&o) as Rc<RefCell<dyn Object>>);
         o

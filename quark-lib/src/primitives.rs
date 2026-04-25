@@ -2,7 +2,7 @@ use crate::anim::Animated;
 use crate::style::{Font, Style};
 
 use kurbo::{Affine, BezPath, Point, Shape, Vec2};
-use skrifa::{raw::FileRef, MetadataProvider};
+use skrifa::{MetadataProvider, raw::FileRef};
 use std::cell::Cell;
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::rc::Rc;
@@ -514,6 +514,109 @@ impl Object for RegularPolygon {
         path.close_path();
         self.style.apply_fill(t, scene, &path, Fill::NonZero);
         self.style.apply_stroke(t, scene, &path);
+    }
+}
+
+pub enum PathSegment {
+    Point(Animated<(f64, f64)>),
+    Line(Animated<(f64, f64)>),
+    Curve {
+        cp1: Animated<(f64, f64)>,
+        cp2: Animated<(f64, f64)>,
+        end: Animated<(f64, f64)>,
+    },
+    Close,
+}
+
+pub struct Path {
+    pub segments: Vec<PathSegment>,
+    pub style: Style,
+
+    cursor: Rc<Cell<f64>>,
+    visible_from: f64,
+    hidden_at: f64,
+}
+
+impl Path {
+    pub(crate) fn new(cursor: Rc<Cell<f64>>) -> Self {
+        Path {
+            segments: Vec::new(),
+            style: Style::new(Rc::clone(&cursor)),
+            visible_from: cursor.get(),
+            hidden_at: f64::INFINITY,
+            cursor,
+        }
+    }
+
+    pub fn move_to(&mut self, p: (f64, f64)) {
+        self.segments.push(PathSegment::Point(Animated::new(
+            p,
+            Rc::clone(&self.cursor),
+        )));
+    }
+
+    pub fn line_to(&mut self, p: (f64, f64)) {
+        self.segments
+            .push(PathSegment::Line(Animated::new(p, Rc::clone(&self.cursor))));
+    }
+
+    pub fn curve_to(&mut self, cp1: (f64, f64), cp2: (f64, f64), end: (f64, f64)) {
+        self.segments.push(PathSegment::Curve {
+            cp1: Animated::new(cp1, Rc::clone(&self.cursor)),
+            cp2: Animated::new(cp2, Rc::clone(&self.cursor)),
+            end: Animated::new(end, Rc::clone(&self.cursor)),
+        });
+    }
+
+    pub fn close(&mut self) {
+        self.segments.push(PathSegment::Close);
+    }
+
+    pub fn hide(&mut self) {
+        self.hidden_at = self.cursor.get();
+    }
+
+    pub fn show(&mut self) {
+        self.visible_from = self.cursor.get();
+        self.hidden_at = f64::INFINITY;
+    }
+}
+
+impl Object for Path {
+    fn draw_at(&self, t: f64, scene: &mut vello::Scene) {
+        if t < self.visible_from || self.hidden_at <= t {
+            return;
+        }
+
+        let mut bez = BezPath::new();
+
+        for segment in &self.segments {
+            match segment {
+                PathSegment::Point(p) => {
+                    let (x, y) = p.value_at(t);
+                    bez.move_to(Point::new(x, y));
+                }
+
+                PathSegment::Line(p) => {
+                    let (x, y) = p.value_at(t);
+                    bez.line_to(Point::new(x, y));
+                }
+
+                PathSegment::Curve { cp1, cp2, end } => {
+                    let (x1, y1) = cp1.value_at(t);
+                    let (x2, y2) = cp2.value_at(t);
+                    let (x3, y3) = end.value_at(t);
+                    bez.curve_to(Point::new(x1, y1), Point::new(x2, y2), Point::new(x3, y3));
+                }
+
+                PathSegment::Close => {
+                    bez.close_path();
+                }
+            }
+        }
+
+        self.style.apply_fill(t, scene, &bez, Fill::NonZero);
+        self.style.apply_stroke(t, scene, &bez);
     }
 }
 
