@@ -63,6 +63,7 @@ enum AnimKind<T: Animate> {
         duration: f64,
         easing: Easing,
     },
+    Dynamic(Box<dyn Fn(f64) -> T>),
 }
 
 struct Keyframe<T: Animate> {
@@ -104,6 +105,13 @@ impl<T: Animate> Animated<T> {
         });
     }
 
+    pub fn set_dynamic(&mut self, func: impl Fn(f64) -> T + 'static) {
+        self.keyframes.push(Keyframe {
+            start_time: self.cursor.get(),
+            kind: AnimKind::Dynamic(Box::new(func)),
+        });
+    }
+
     pub fn set_immediate(&mut self, value: T) {
         let cursor = self.cursor.get();
 
@@ -127,17 +135,13 @@ impl<T: Animate> Animated<T> {
                 let elapsed = t - kf.start_time;
 
                 match &kf.kind {
-                    AnimKind::Tween {
-                        from,
-                        to,
-                        duration,
-                        easing,
-                    } => {
+                    AnimKind::Tween { from, to, duration, easing } => {
                         if *duration == 0.0 {
                             return to.clone();
                         }
                         from.lerp(to, easing.apply((elapsed / duration).min(1.0)))
                     }
+                    AnimKind::Dynamic(func) => func(t),
                 }
             }
         }

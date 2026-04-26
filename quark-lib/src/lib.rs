@@ -233,9 +233,16 @@ impl Scene {
     pub(crate) fn draw_at(&self, t: f64, vscene: &mut vello::Scene) {
         vscene.reset();
 
+        let cx = self.width as f64 / 2.0;
+        let cy = self.height as f64 / 2.0;
+        let transform = kurbo::Affine::new([1.0, 0.0, 0.0, -1.0, cx, cy]);
+
+        let mut layer = vello::Scene::new();
         for obj in &self.objects {
-            obj.borrow().draw_at(t, vscene);
+            obj.borrow().draw_at(t, &mut layer);
         }
+
+        vscene.append(&layer, Some(transform));
     }
 
     pub fn preview(self) -> Result<()> {

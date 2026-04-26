@@ -45,8 +45,12 @@ obj.field.set(target, duration);
 // Tween with a specific easing
 obj.field.set_with(target, duration, Easing::SMOOTH);
 
+// Let the value vary over time
+obj.field.set_dynamic(|t| f(t));
+
 // Jump to a value immediately
 obj.field.set_immediate(value);
+
 ```
 
 ## Preview window controls
